@@ -1,0 +1,7 @@
+# .env
+
+# Port du serveur
+PORT=3000
+
+# URL de l'API IA
+AI_API=https://christus-api.vercel.app/ai/gemini-proxy2?prompt=
