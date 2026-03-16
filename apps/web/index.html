@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Octavio AI WhatsApp</title>
+<style>
+  /* --- CSS intégré --- */
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0f0f0f;
+    color: #00ff99;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+  }
+
+  #loader {
+    font-size: 24px;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  #app {
+    display: none;
+    text-align: center;
+  }
+
+  input {
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+    margin-bottom: 10px;
+    border: 1px solid #00ff99;
+    background: #111;
+    color: #00ff99;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background: #00ff99;
+    color: #0f0f0f;
+    border: none;
+  }
+
+  #code {
+    margin-top: 20px;
+    font-size: 22px;
+    letter-spacing: 4px;
+    min-height: 30px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loader">Chargement du système Octavio AI...</div>
+
+<div id="app">
+  <h1>Octavio WhatsApp AI</h1>
+  <input id="number" placeholder="Numéro WhatsApp">
+  <br>
+  <button onclick="activate()">Générer le code</button>
+  <p id="code"></p>
+</div>
+
+<script>
+  // --- JavaScript intégré ---
+
+  // Affiche le loader puis le contenu après 2 secondes
+  window.addEventListener("load", () => {
+    const loader = document.getElementById("loader")
+    const app = document.getElementById("app")
+    loader.style.display = "block"
+    setTimeout(() => {
+      loader.style.display = "none"
+      app.style.display = "block"
+    }, 2000)
+  })
+
+  // Fonction pour afficher le code comme machine à écrire
+  function typeWriter(text, element, delay = 150) {
+    element.innerText = ""
+    let i = 0
+    const timer = setInterval(() => {
+      element.innerText += text.charAt(i)
+      i++
+      if (i >= text.length) clearInterval(timer)
+    }, delay)
+  }
+
+  // Fonction pour activer le bot et récupérer le code réel
+  async function activate() {
+    const number = document.getElementById("number").value
+    if (!number) return alert("Veuillez entrer un numéro WhatsApp")
+
+    const res = await fetch("/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ numero: number })
+    })
+
+    const data = await res.json()
+    const codeEl = document.getElementById("code")
+    typeWriter(data.code, codeEl)
+  }
+</script>
+
+</body>
+  </html>
