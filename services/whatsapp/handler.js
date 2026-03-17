@@ -1,28 +1,15 @@
-// services/whatsapp/handler.js
+const { askAI } = require("../ai/aiClient");
 
-import { askAI } from "../ai/aiClient.js"
+module.exports = async (sock, m) => {
+  const msg = m.messages[0];
 
-// Fonction qui gère les messages entrants
-export async function handleMessage(sock, msg) {
+  if (!msg.message || msg.key.fromMe) return;
 
-  const from = msg.key.remoteJid
+  const text = msg.message.conversation || "";
 
-  // Ignore les groupes
-  const isGroup = from.endsWith("@g.us")
-  if (isGroup) return
+  console.log("📩 Message:", text);
 
-  // Récupère le texte du message
-  let text =
-    msg.message?.conversation ||
-    msg.message?.extendedTextMessage?.text
+  const reply = await askAI(text);
 
-  if (!text) return
-
-  // Appelle l'IA pour obtenir la réponse
-  const reply = await askAI(text)
-
-  // Envoie la réponse sur WhatsApp
-  await sock.sendMessage(from, {
-    text: reply + "\n\n— Octavio AI 🤖"
-  })
-}
+  await sock.sendMessage(msg.key.remoteJid, { text: reply });
+};
