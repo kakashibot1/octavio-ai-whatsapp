@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import activationRouter from "./routes/activation.js";
 import messageRouter from "./routes/message.js";
+import statsRouter from "./routes/stats.js";
 import { startBot } from "../services/whatsapp/bot.js";
 import dotenv from "dotenv";
 
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "../apps/web")));
 app.use("/dashboard", express.static(path.join(__dirname, "../apps/dashboard")));
 app.use("/api/messages", messageRouter);
+app.use("/api/stats", statsRouter);
 
 // Routes API
 app.use("/activate", activationRouter);
@@ -40,6 +42,7 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Octavio AI server running on http://localhost:${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
+  console.log(`📈 Stats: http://localhost:${PORT}/api/stats`);
 });
 
 // Démarre le bot WhatsApp
