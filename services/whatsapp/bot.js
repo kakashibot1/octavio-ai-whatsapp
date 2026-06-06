@@ -1,12 +1,14 @@
-const makeWASocket = require("@whiskeysockets/baileys").default;
-const { useMultiFileAuthState } = require("@whiskeysockets/baileys");
-const qrcode = require("qrcode-terminal");
-const handler = require("./handler");
+import makeWASocket from "@whiskeysockets/baileys";
+import { useMultiFileAuthState } from "@whiskeysockets/baileys";
+import qrcode from "qrcode-terminal";
+import { handleMessage } from "./handler.js";
 
-async function startBot() {
+let sock = null;
+
+export async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("sessions/whatsapp");
 
-  const sock = makeWASocket({
+  sock = makeWASocket({
     auth: state
   });
 
@@ -21,13 +23,21 @@ async function startBot() {
     }
 
     if (connection === "open") {
-      console.log("✅ Bot connecté !");
+      console.log("✅ Bot WhatsApp connecté !");
+    }
+
+    if (connection === "close") {
+      console.log("❌ Bot WhatsApp déconnecté !");
     }
   });
 
   sock.ev.on("messages.upsert", async (m) => {
-    await handler(sock, m);
+    await handleMessage(sock, m);
   });
+
+  return sock;
 }
 
-startBot();
+export function getSocket() {
+  return sock;
+}

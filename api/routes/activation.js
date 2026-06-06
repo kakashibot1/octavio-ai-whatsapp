@@ -1,18 +1,16 @@
-// api/routes/activation.js
+import express from "express";
+import { activateUser, getUsers } from "../controllers/activationController.js";
 
-import express from "express"
-import { activateUser, getUsers } from "../controllers/activationController.js"
-
-const router = express.Router()
+const router = express.Router();
 
 // POST /activate → l'utilisateur envoie son numéro et reçoit son code
 router.post("/", (req, res) => {
-  activateUser(req, res)
-})
+  activateUser(req, res);
+});
 
 // GET /activate/users → récupérer tous les utilisateurs activés (dashboard)
 router.get("/users", (req, res) => {
-  getUsers(req, res)
-})
+  getUsers(req, res);
+});
 
-export default router
+export default router;

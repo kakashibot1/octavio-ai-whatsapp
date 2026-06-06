@@ -1,21 +1,49 @@
-// api/server.js
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import activationRouter from "./routes/activation.js";
+import messageRouter from "./routes/message.js";
+import { startBot } from "../services/whatsapp/bot.js";
+import dotenv from "dotenv";
 
-import express from "express"
-import activationRouter from "./routes/activation.js"
-import { startBot } from "../services/whatsapp/bot.js"
+dotenv.config();
 
-const app = express()
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-app.use(express.json())
+// Setup pour les chemins de fichiers (nécessaire avec ES modules)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Route pour générer le code
-app.use("/activate", activationRouter)
+// Middleware
+app.use(express.json());
+
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, "../apps/web")));
+app.use("/dashboard", express.static(path.join(__dirname, "../apps/dashboard")));
+app.use("/api/messages", messageRouter);
+
+// Routes API
+app.use("/activate", activationRouter);
+
+// Route pour le dashboard
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "../apps/dashboard/index.html"));
+});
+
+// Route par défaut
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../apps/web/index.html"));
+});
 
 // Démarre le serveur
-const PORT = 3000
 app.listen(PORT, () => {
-  console.log(`🚀 Octavio AI server running on port ${PORT}`)
-})
+  console.log(`🚀 Octavio AI server running on http://localhost:${PORT}`);
+  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
+});
 
 // Démarre le bot WhatsApp
-startBot()
+console.log("⏳ Démarrage du bot WhatsApp...");
+startBot().catch(err => {
+  console.error("❌ Erreur au démarrage du bot:", err.message);
+});
