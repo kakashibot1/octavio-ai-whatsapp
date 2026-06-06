@@ -2,8 +2,8 @@ import { askAI } from "../ai/aiClient.js";
 import { verifyCode } from "../activation/codeGenerator.js";
 import { addMessage } from "../../api/controllers/messageController.js";
 import { saveUserData, getUserData, trackChannelFollow, isChannelFollower } from "../memory/memoryManager.js";
-import { sendChannelPromotionMessage, notifyChannelFollow, sendShareRewardMessage, isValidChannelFollowCommand } from "../channel/channelManager.js";
-import { generateWebsite, generateImage, modifyImage, generateVideo, generateCode, createWebApp, listGeneratedAssets } from "../ai/advancedAI.js";
+import { sendChannelPromotionMessage, notifyChannelFollow } from "../channel/channelManager.js";
+import { deployWebsite, getDeployedSites, getSiteDetails } from "../deployment/deploymentManager.js";
 
 export async function handleMessage(sock, m) {
   const msg = m.messages[0];
@@ -24,13 +24,13 @@ export async function handleMessage(sock, m) {
   console.log(`📩 Message reçu de ${senderId}: ${text}`);
 
   // Vérifier si c'est une commande de suivi de chaîne
-  if (isValidChannelFollowCommand(text)) {
+  if (text.toLowerCase().includes("suivi") || text.toLowerCase().includes("suivre") || text.toLowerCase().includes("join")) {
     await notifyChannelFollow(sock, remoteJid, senderId);
     return;
   }
 
   // Vérifier si c'est une demande de lien de promotion
-  if (text.toLowerCase().includes("promotion") || text.toLowerCase().includes("partager") || text.toLowerCase().includes("share")) {
+  if (text.toLowerCase().includes("promotion") || text.toLowerCase().includes("partager")) {
     await sendChannelPromotionMessage(sock, remoteJid, senderId);
     saveUserData(senderId, {
       numero: senderId,
@@ -40,101 +40,109 @@ export async function handleMessage(sock, m) {
     return;
   }
 
-  // NOUVELLES FONCTIONNALITÉS AVANCÉES
-  // Générer un site web
-  if (text.toLowerCase().startsWith("site:") || text.toLowerCase().startsWith("créer site:")) {
-    const description = text.split(":")[1].trim();
-    await sock.sendMessage(remoteJid, { text: "⏳ Génération de votre site web..." });
-    const result = await generateWebsite(description, senderId);
-    if (result.success) {
-      await sock.sendMessage(remoteJid, {
-        text: `✅ **Site Web Créé!**\n\n🔗 Lien: ${result.url}\n\nVotre site est prêt et accessible maintenant!`
-      });
-      saveUserData(senderId, { generatedWebsite: result.url });
-    } else {
-      await sock.sendMessage(remoteJid, { text: `❌ Erreur: ${result.error}` });
-    }
-    return;
-  }
+  // ============================================================
+  // NOUVELLE FONCTIONNALITÉ: DÉPLOIEMENT DE SITES WEB
+  // ============================================================
 
-  // Générer une image
-  if (text.toLowerCase().startsWith("image:") || text.toLowerCase().startsWith("créer image:")) {
-    const description = text.split(":")[1].trim();
-    await sock.sendMessage(remoteJid, { text: "🖼️ Génération de votre image..." });
-    const result = await generateImage(description, senderId);
-    if (result.success) {
-      await sock.sendMessage(remoteJid, {
-        text: `✅ **Image Générée!**\n\n🖼️ Image: ${result.url}`
-      });
-    }
-    return;
-  }
-
-  // Générer du code
-  if (text.toLowerCase().startsWith("code:")) {
-    const parts = text.split(":");
-    const language = parts[1]?.trim() || "javascript";
-    const description = parts.slice(2).join(":").trim();
-    await sock.sendMessage(remoteJid, { text: "💻 Génération de code..." });
-    const result = await generateCode(description, language, senderId);
-    if (result.success) {
-      await sock.sendMessage(remoteJid, {
-        text: `✅ **Code ${language.toUpperCase()} Généré!**\n\n📄 Fichier: ${result.url}\n\n📋 Aperçu:\n\`\`\`\n${result.preview}\n\`\`\``
-      });
-    }
-    return;
-  }
-
-  // Créer une application web
-  if (text.toLowerCase().startsWith("app:")) {
-    const description = text.split(":")[1].trim();
-    const appTypes = ["calculator", "todo", "portfolio", "landing"];
-    let appType = "landing";
+  // Déployer un site web avec nom personnalisé
+  if (text.toLowerCase().startsWith("site:") || text.toLowerCase().startsWith("créer site:") || text.toLowerCase().startsWith("portfolio:")) {
+    const description = text.split(":").slice(1).join(":").trim();
     
-    for (const type of appTypes) {
-      if (description.toLowerCase().includes(type)) {
-        appType = type;
-        break;
-      }
-    }
-    
-    await sock.sendMessage(remoteJid, { text: `📱 Création de l'app web ${appType}...` });
-    const result = await createWebApp(appType, description, senderId);
-    if (result.success) {
+    if (!description) {
       await sock.sendMessage(remoteJid, {
-        text: `✅ **App Web Créée!**\n\n📱 Type: ${appType}\n🔗 Lien: ${result.url}\n\nL'app est prêt à utiliser!`
+        text: "⚠️ Veuillez spécifier le type de site.\nExemple: 'site: mon portfolio programmeur'"
       });
-      saveUserData(senderId, { generatedApps: (getUserData(senderId)?.generatedApps || []).concat(result.url) });
+      return;
     }
-    return;
-  }
 
-  // Générer une vidéo
-  if (text.toLowerCase().startsWith("vidéo:") || text.toLowerCase().startsWith("video:")) {
-    const description = text.split(":")[1].trim();
-    await sock.sendMessage(remoteJid, { text: "🎬 Génération de votre vidéo..." });
-    const result = await generateVideo(description, 30, senderId);
-    if (result.success) {
-      await sock.sendMessage(remoteJid, {
-        text: `✅ **Vidéo Générée!**\n\n🎬 Vidéo: ${result.url}\n⏱️ Durée: ${result.duration}s\n\n📝 Script:\n${result.script}`
-      });
-    }
-    return;
-  }
-
-  // Lister les ressources générées
-  if (text.toLowerCase().includes("mes ressources") || text.toLowerCase().includes("mes créations")) {
-    const assets = await listGeneratedAssets(senderId);
+    // Avertir l'utilisateur du démarrage
     await sock.sendMessage(remoteJid, {
-      text: `📊 **Vos Créations**\n\n📁 Ressources générées: ${assets.count}\n\n✅ Vous pouvez demander des sites, images, codes ou vidéos!`
+      text: `⏳ Déploiement du site: "${description}"...\n🛠️ Création des fichiers...\n💾 Stockage...\n🚀 Mise en ligne...`
     });
+
+    try {
+      // Récupérer les données utilisateur
+      const userData = getUserData(senderId) || {};
+      
+      // Déployer le site
+      const deployResult = await deployWebsite(description, senderId, userData);
+
+      if (deployResult.success) {
+        // Message de confirmation avec les liens
+        const deploymentMessage = `
+✅ **SITE WEB DÉPLOYÉ AVEC SUCCÈS!**
+
+🌗 **Nom du site:** ${deployResult.siteName}
+📚 **Description:** ${description}
+
+🔗 **URLs de déploiement:**
+🌐 Lien local: ${deployResult.localUrl}
+🚀 Production: ${deployResult.productionUrl}
+
+📄 Votre site est prêt et accessible maintenant!
+💫 Partagez le lien avec qui vous voulez!
+🌟 Créé par Octavio AI
+        `;
+
+        await sock.sendMessage(remoteJid, { text: deploymentMessage });
+
+        // Sauvegarder les données de l'utilisateur
+        const deployedSites = (userData.deployedSites || []);
+        deployedSites.push({
+          name: deployResult.siteName,
+          description,
+          url: deployResult.localUrl,
+          deployedAt: deployResult.deployedAt
+        });
+
+        saveUserData(senderId, {
+          numero: senderId,
+          deployedSites,
+          lastDeployment: deployResult.deployedAt
+        });
+      } else {
+        await sock.sendMessage(remoteJid, {
+          text: `❌ Erreur de déploiement: ${deployResult.error}`
+        });
+      }
+    } catch (error) {
+      console.error("❌ Erreur déploiement:", error);
+      await sock.sendMessage(remoteJid, {
+        text: `❌ Erreur: ${error.message}`
+      });
+    }
     return;
   }
 
-  // Récupérer les données utilisateur
+  // Lister les sites déployés
+  if (text.toLowerCase().includes("mes sites") || text.toLowerCase().includes("sites deploy")) {
+    try {
+      const sitesData = getDeployedSites(senderId);
+      
+      if (sitesData.sites.length === 0) {
+        await sock.sendMessage(remoteJid, {
+          text: "📄 Vous n'avez pas encore de sites déployés.\n\nTapez: site: votre portfolio pour en créer un!"
+        });
+      } else {
+        let sitesMessage = `🌐 **VOS SITES DÉPLOYÉS** (${sitesData.totalSites})\n\n`;
+        
+        sitesData.sites.forEach((site, i) => {
+          sitesMessage += `${i + 1}. **${site.name}**\n✅ Status: ${site.status}\n🔗 ${site.localUrl}\n\n`;
+        });
+        
+        await sock.sendMessage(remoteJid, { text: sitesMessage });
+      }
+    } catch (error) {
+      await sock.sendMessage(remoteJid, {
+        text: `❌ Erreur: ${error.message}`
+      });
+    }
+    return;
+  }
+
+  // Vérifier l'activation
   const userData = getUserData(senderId);
 
-  // Vérifier si l'utilisateur est activé avec son code
   if (!verifyCode(senderId, text) && !text.startsWith("/activate")) {
     if (!userData || !userData.activated) {
       console.log(`⚠️ Utilisateur ${senderId} non autorisé`);
@@ -145,7 +153,7 @@ export async function handleMessage(sock, m) {
     }
   }
 
-  // Traiter les commandes spéciales
+  // Commande d'activation
   if (text.startsWith("/activate")) {
     saveUserData(senderId, {
       numero: senderId,
@@ -153,24 +161,17 @@ export async function handleMessage(sock, m) {
       activatedAt: new Date().toISOString()
     });
     await sock.sendMessage(remoteJid, {
-      text: "✅ Vous êtes maintenant activé ! Vous pouvez discuter avec Octavio AI.\n\n🚀 **Fonctionnalités Disponibles:**\n• site: [description] - Créer un site web\n• image: [description] - Générer une image\n• code: [langage] [description] - Générer du code\n• app: [type] - Créer une app web\n• vidéo: [description] - Créer une vidéo\n• mes ressources - Lister vos créations"
+      text: `✅ **Bienvenue sur Octavio AI!**\n\n🚀 **Commandes disponibles:**\n\n🌗 **Déploiement:**\n• site: [description] - Créer un site (ex: site: mon portfolio programmeur)\n• mes sites - Voir vos sites déployés\n\n💡 **Plus de fonctionnalités:**\n• image: [description] - Générer une image\n• code: [langage] [description] - Générer du code\n• promotion - Récompenses\n\nCommencez maintenant!"`
     });
     return;
   }
 
-  // Si l'utilisateur est un follower de chaîne, lui donner l'accès premium
+  // Répondre avec l'IA pour les autres messages
   const isFollower = isChannelFollower(senderId);
-  if (isFollower) {
-    console.log(`⭐ Message premium de ${senderId}`);
-  }
-
-  // Récupère la réponse de l'IA
   const reply = await askAI(text);
-
-  // Envoie la réponse
   await sock.sendMessage(remoteJid, { text: reply });
 
-  // Enregistre le message et met à jour la mémoire
+  // Enregistrer et mettre à jour
   addMessage(senderId, text);
   saveUserData(senderId, {
     numero: senderId,
